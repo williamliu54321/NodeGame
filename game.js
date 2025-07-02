@@ -6,40 +6,42 @@ process.stdin.resume();
 process.stdin.setEncoding("utf8");
 
 // --- IMPORT THE MAP MODULE ---
-// The 'map' constant now holds our "remote control" object:
-// { movePlayer: [Function], renderMap: [Function] }
+// This now holds { moveCamera, renderMap, getPlayerHealth }
 const map = require('./map.js');
 
-
 // --- INITIAL RENDER ---
-// Draw the map once at the very beginning of the game.
 map.renderMap();
-
 
 // --- THE GAME LOOP (INPUT LISTENER) ---
 process.stdin.on("data", (key) => {
-  // 1. Handle Quit Command
+  // Handle the quit command
   if (key === "q") {
     console.log("Thanks for playing!");
     process.exit();
   }
 
-  // 2. Use the remote control to ask the map to move the player
+  // Command the map module to attempt a move
   switch (key) {
     case "w":
-      map.movePlayer('up');
+      map.moveCamera('up');
       break;
     case "a":
-      map.movePlayer('left');
+      map.moveCamera('left');
       break;
     case "s":
-      map.movePlayer('down');
+      map.moveCamera('down');
       break;
     case "d":
-      map.movePlayer('right');
+      map.moveCamera('right');
       break;
   }
 
-  // 3. After every key press, tell the map to redraw itself
+  // After every attempted move, render the result.
   map.renderMap();
+
+  // CHECK THE GAME STATE: After rendering, check if the game is over.
+  if (map.getPlayerHealth() <= 0) {
+    console.log("You ran out of health. GAME OVER.");
+    process.exit(); // End the game
+  }
 });
