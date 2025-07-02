@@ -6,42 +6,66 @@ process.stdin.resume();
 process.stdin.setEncoding("utf8");
 
 // --- IMPORT THE MAP MODULE ---
-// This now holds { moveCamera, renderMap, getPlayerHealth }
+// This should now hold { moveCamera, renderMap, updateWorld, getPlayerHealth, resetFlashStates }
 const map = require('./map.js');
 
-// --- INITIAL RENDER ---
-map.renderMap();
+// --- GAME STATE & CONFIGURATION ---
+let lastPlayerInput = null;
+const PLAYER_TICK_RATE_MS = 250; // Slowed down a bit for better visibility of flashes
+let tickCounter = 0;
+const ENEMY_TURN_TICK_INTERVAL = 2; // Enemies move every 2 ticks (every 0.5 seconds)
 
-// --- THE GAME LOOP (INPUT LISTENER) ---
+// --- INPUT LISTENER (Same as before) ---
 process.stdin.on("data", (key) => {
-  // Handle the quit command
   if (key === "q") {
     console.log("Thanks for playing!");
     process.exit();
   }
-
-  // Command the map module to attempt a move
-  switch (key) {
-    case "w":
-      map.moveCamera('up');
-      break;
-    case "a":
-      map.moveCamera('left');
-      break;
-    case "s":
-      map.moveCamera('down');
-      break;
-    case "d":
-      map.moveCamera('right');
-      break;
-  }
-
-  // After every attempted move, render the result.
-  map.renderMap();
-
-  // CHECK THE GAME STATE: After rendering, check if the game is over.
-  if (map.getPlayerHealth() <= 0) {
-    console.log("You ran out of health. GAME OVER.");
-    process.exit(); // End the game
+  if (['w', 'a', 's', 'd'].includes(key)) {
+    lastPlayerInput = key;
   }
 });
+
+// --- THE REAL-TIME GAME LOOP ---
+function gameLoop() {
+  tickCounter++;
+
+  // --- NEW STEP 1: RESET FRAME STATE ---
+  // This is the crucial new line. It turns off the flash from the previous frame.
+  map.resetFlashStates();
+
+  // --- 2. Player's Turn ---
+  if (lastPlayerInput) {
+    switch (lastPlayerInput) {
+      case "w": map.moveCamera('up');    break;
+      case "a": map.moveCamera('left');  break;
+      case "s": map.moveCamera('down');  break;
+      case "d": map.moveCamera('right'); break;
+    }
+    lastPlayerInput = null;
+  }
+
+  // --- 3. Enemy's Turn ---
+  if (tickCounter % ENEMY_TURN_TICK_INTERVAL === 0) {
+    // When an enemy attacks inside updateWorld, it will set the flash states to true.
+    map.updateWorld();
+  }
+
+  // --- 4. Render the World ---
+  // renderMap will now see the new flash states and draw the colors.
+  map.renderMap();
+
+  // --- 5. Check Game State ---
+  if (map.getPlayerHealth() <= 0) {
+    console.log("You have been defeated! GAME OVER.");
+    clearInterval(gameInterval);
+    process.exit();
+  }
+}
+
+// --- START THE GAME ---
+console.log("Game starting...");
+map.renderMap();
+
+// Start the fast game loop.
+const gameInterval = setInterval(gameLoop, PLAYER_TICK_RATE_MS);
